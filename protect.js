@@ -1,7 +1,5 @@
 (function () {
-    var userRaw = localStorage.getItem('user');
-    var user = null;
-    try { user = userRaw ? JSON.parse(userRaw) : null; } catch (e) { user = null; }
+    var user = window.PSS ? window.PSS.getUser() : null;
 
     if (!user) {
         window.location.replace('login.html');
@@ -26,7 +24,7 @@
         '<button type="button" class="pf-btn pf-sair">Sair</button>';
 
     bar.querySelector('.pf-sair').addEventListener('click', function () {
-        localStorage.removeItem('user');
+        if (window.PSS) window.PSS.clearUser();
         window.location.replace('login.html');
     });
 

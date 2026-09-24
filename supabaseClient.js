@@ -27,7 +27,7 @@
         bucket: BUCKET,
         email: function () {
             try {
-                var u = JSON.parse(localStorage.getItem('user') || 'null');
+                var u = window.PSS ? window.PSS.getUser() : null;
                 return (u && u.email) ? u.email : '';
             } catch (e) { return ''; }
         },

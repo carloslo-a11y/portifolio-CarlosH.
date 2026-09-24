@@ -57,12 +57,14 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      localStorage.setItem('user', JSON.stringify({
-        id: user.id,
-        nome: user.nome,
-        email: user.email,
-        tipo: user.tipo
-      }));
+      if (window.PSS) {
+        window.PSS.setUser({
+          id: user.id,
+          nome: user.nome,
+          email: user.email,
+          tipo: user.tipo
+        });
+      }
 
       window.location.href = 'index.html';
     } catch (err) {
