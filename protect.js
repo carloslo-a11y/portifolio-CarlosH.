@@ -1,5 +1,15 @@
 (function () {
-    var user = window.PSS ? window.PSS.getUser() : null;
+    var user = null;
+    if (window.PSS) {
+        user = window.PSS.getUser();
+    } else {
+        try {
+            var raw = sessionStorage.getItem('pf-user') || '';
+            user = raw ? JSON.parse(raw) : null;
+        } catch (e) {
+            user = null;
+        }
+    }
 
     if (!user) {
         window.location.replace('login.html');
@@ -25,6 +35,12 @@
 
     bar.querySelector('.pf-sair').addEventListener('click', function () {
         if (window.PSS) window.PSS.clearUser();
+        try {
+            sessionStorage.removeItem('pf-user');
+            document.cookie = 'pf-user=; path=/; SameSite=Lax; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        } catch (e) {
+            try { sessionStorage.removeItem('pf-user'); } catch (e2) { }
+        }
         window.location.replace('login.html');
     });
 

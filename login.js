@@ -57,13 +57,23 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
+      var sessao = {
+        id: user.id,
+        nome: user.nome,
+        email: user.email,
+        tipo: user.tipo
+      };
+
       if (window.PSS) {
-        window.PSS.setUser({
-          id: user.id,
-          nome: user.nome,
-          email: user.email,
-          tipo: user.tipo
-        });
+        window.PSS.setUser(sessao);
+      } else {
+        try {
+          var json = JSON.stringify(sessao);
+          sessionStorage.setItem('pf-user', json);
+          document.cookie = 'pf-user=' + encodeURIComponent(json) + '; path=/; SameSite=Lax';
+        } catch (err) {
+          console.error(err);
+        }
       }
 
       window.location.href = 'index.html';
