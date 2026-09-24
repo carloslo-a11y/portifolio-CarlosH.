@@ -5,6 +5,35 @@
     var SUPABASE_ANON_KEY = 'sb_publishable_QcfBILqMhKgv064PjrXW-w_NHxAy5Kb';
     var BUCKET = 'portfolio';
 
+    (function injetarApikey() {
+        var originalFetch = window.fetch;
+        if (!originalFetch) return;
+        window.fetch = function (input, init) {
+            var url = '';
+            if (typeof input === 'string') url = input;
+            else if (input && input.url) url = input.url;
+            if (url.indexOf(SUPABASE_URL) === 0) {
+                try {
+                    var headers;
+                    if (init && init.headers) {
+                        headers = new Headers(init.headers);
+                    } else if (typeof Request !== 'undefined' && input instanceof Request && input.headers) {
+                        headers = new Headers(input.headers);
+                    } else {
+                        headers = new Headers();
+                    }
+                    if (!headers.has('apikey')) {
+                        headers.set('apikey', SUPABASE_ANON_KEY);
+                        headers.set('Authorization', 'Bearer ' + SUPABASE_ANON_KEY);
+                    }
+                    init = init || {};
+                    init.headers = headers;
+                } catch (e) { /* segue sem injetar */ }
+            }
+            return originalFetch.call(this, input, init);
+        };
+    })();
+
     function dataUrlToBlob(dataUrl) {
         var parts = String(dataUrl).split(',');
         var mime = (parts[0].match(/:(.*?);/) || [, 'application/octet-stream'])[1];
