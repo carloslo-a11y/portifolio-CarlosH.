@@ -1,0 +1,14 @@
+# Dependências do Node (não são mais necessárias — o site usa Supabase direto do navegador)
+node_modules/
+
+# Arquivos do Windows
+desktop.ini
+Thumbs.db
+
+# Logs e temporários
+*.log
+.DS_Store
+
+# Segredos (nunca subir a chave "service_role" do Supabase)
+*.service_role*.json
+.env
