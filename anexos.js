@@ -97,13 +97,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!anexosOk()) return Promise.resolve({ passos: [] });
         return SB.client().from('anexos')
             .select('dados')
-            .eq('email', ANEXOS_KEY)
+            .eq('id', ANEXOS_KEY)
             .maybeSingle()
             .then(function (res) {
                 if (res.error) throw res.error;
                 return (res.data && res.data.dados) || { passos: [] };
             })
-            .catch(function () { return { passos: [] }; });
+            .catch(function (err) {
+                console.error('anexos: falha ao carregar da nuvem', err);
+                return { passos: [] };
+            });
     }
 
     // ---------- salvar na nuvem ----------
@@ -135,12 +138,14 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             chain
-                .then(() => SB.client().from('anexos').upsert({ email: ANEXOS_KEY, dados: state }, { onConflict: 'email' }))
+                .then(() => SB.client().from('anexos').upsert({ id: ANEXOS_KEY, dados: state }, { onConflict: 'id' }))
                 .then(function (res) {
                     if (res.error) throw res.error;
                 })
                 .catch(function (err) {
-                    showToast('⚠ Erro ao salvar na nuvem: ' + ((err && err.message) || 'erro.'));
+                    console.error('anexos: erro ao salvar na nuvem', err);
+                    var mensagem = (SB && SB.msgErro) ? SB.msgErro(err) : 'Erro ao salvar na nuvem.';
+                    showToast('⚠ ' + mensagem);
                 });
         }, 500);
     }
@@ -150,7 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!anexosOk()) return;
         SB.subscribe('anexos', null, null, function (payload) {
             const row = payload.new || payload.old;
-            if (!row || row.email !== ANEXOS_KEY) return;
+            if (!row || row.id !== ANEXOS_KEY) return;
             if (payload.eventType === 'DELETE') {
                 applyState({ passos: [] });
                 return;

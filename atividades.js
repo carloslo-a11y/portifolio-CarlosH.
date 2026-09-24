@@ -112,7 +112,6 @@
                 .then(function () {
                     return SB.client().from('atividades').upsert({
                         id: item.id,
-                        email: (SB.email() || 'portfolio'),
                         area: AREA_KEY,
                         eixo: item.eixo,
                         nome: item.nome,
@@ -125,7 +124,9 @@
                     return true;
                 })
                 .catch(function (err) {
-                    toast('⚠ Não foi possível sincronizar: ' + ((err && err.message) || 'erro.'));
+                    console.error('atividades: erro ao sincronizar', err);
+                    var mensagem = (SB && SB.msgErro) ? SB.msgErro(err) : 'Não foi possível conectar com o Cloud.';
+                    toast('⚠ ' + mensagem);
                     return false;
                 });
         }
@@ -134,7 +135,9 @@
             if (!supOk()) return Promise.resolve();
             return remoteList().then(function (rows) {
                 state = rows.map(toItem);
-            }).catch(function () { });
+            }).catch(function (err) {
+                console.error('atividades: falha ao carregar da nuvem', err);
+            });
         }
 
         function applyRemote(payload) {

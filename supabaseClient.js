@@ -54,6 +54,23 @@
         client: function () { return window._supabase; },
         ready: function () { return !!window._supabase; },
         bucket: BUCKET,
+        msgErro: function (err) {
+            var msg = '';
+            try {
+                msg = (err && (err.message || err.error_description)) || '';
+            } catch (e) { msg = ''; }
+            var low = String(msg).toLowerCase();
+            if (err && (err.code === '42703' || low.indexOf('does not exist') !== -1
+                || low.indexOf('could not find') !== -1 || low.indexOf('invalid input') !== -1)) {
+                return 'Banco desatualizado: rode o supabase.sql no SQL Editor do Supabase.';
+            }
+            if (low.indexOf('failed to fetch') !== -1 || low.indexOf('fetch failed') !== -1
+                || low.indexOf('network') !== -1 || low.indexOf('load failed') !== -1
+                || low.indexOf('cors') !== -1 || low.indexOf('typeerror') !== -1) {
+                return 'Não foi possível conectar com o Cloud. Verifique a internet.';
+            }
+            return msg || 'Não foi possível conectar com o Cloud. Tente novamente.';
+        },
         email: function () {
             try {
                 var u = window.PSS ? window.PSS.getUser() : null;
