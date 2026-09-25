@@ -29,14 +29,10 @@ document.addEventListener('DOMContentLoaded', () => {
     input.addEventListener('input', clearMessages);
   });
 
-  // A função de cadastro ainda não existe no banco (SQL antigo)?
+  // O banco ainda não tem a função nova? Usa o método antigo.
   function ehFuncaoAusente(err) {
-    if (!err) return false;
-    const low = String(err.message || '').toLowerCase();
-    return err.code === '42883'
-      || low.indexOf('does not exist') !== -1
-      || low.indexOf('not found') !== -1
-      || low.indexOf('failed to load') !== -1;
+    if (window.SB && window.SB.funcaoAusente) return window.SB.funcaoAusente(err);
+    return false;
   }
 
   async function criarConta(nome, email, senha, tipo) {
@@ -119,8 +115,13 @@ document.addEventListener('DOMContentLoaded', () => {
         window.location.href = 'login.html';
       }, 1800);
     } catch (err) {
-      console.error(err);
-      showError('Erro ao realizar o cadastro. Tente novamente.');
+      console.error('cadastro falhou:', err);
+      const code = (err && err.code) || '';
+      if (code === '42501') {
+        showError('Acesso negado pelo banco. Rode o supabase.sql no Supabase.');
+      } else {
+        showError('Não foi possível criar a conta agora. Tente novamente em instantes.');
+      }
     } finally {
       cadastroBtn.classList.remove('loading');
       cadastroBtn.textContent = 'Cadastrar';

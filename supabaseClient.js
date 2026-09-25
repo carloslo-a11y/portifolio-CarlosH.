@@ -71,6 +71,20 @@
             }
             return msg || 'Não foi possível conectar com o Cloud. Tente novamente.';
         },
+        // A função nova do banco ainda não existe? (o site funciona nos dois formatos)
+        // PGRST202 = função não encontrada | PGRST203 = assinatura diferente
+        // 42883    = undefined_function ( Postgres )
+        funcaoAusente: function (err) {
+            if (!err) return false;
+            var code = String(err.code || '');
+            var low = String(err.message || '').toLowerCase();
+            if (code === 'PGRST202' || code === 'PGRST203' || code === '42883') return true;
+            return low.indexOf('could not find the function') !== -1
+                || low.indexOf('undefined_function') !== -1
+                || low.indexOf('does not exist') !== -1
+                || low.indexOf('not found') !== -1
+                || low.indexOf('failed to load') !== -1;
+        },
         email: function () {
             try {
                 var u = window.PSS ? window.PSS.getUser() : null;

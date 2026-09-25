@@ -22,15 +22,10 @@ document.addEventListener('DOMContentLoaded', () => {
     input.addEventListener('input', clearError);
   });
 
-  // A função de login ainda não existe no banco (SQL antigo)?
-  // Nesse caso caímos no método antigo de consulta direta.
+  // O banco ainda não tem a função nova? Usa o método antigo.
   function ehFuncaoAusente(err) {
-    if (!err) return false;
-    const low = String(err.message || '').toLowerCase();
-    return err.code === '42883'
-      || low.indexOf('does not exist') !== -1
-      || low.indexOf('not found') !== -1
-      || low.indexOf('failed to load') !== -1;
+    if (window.SB && window.SB.funcaoAusente) return window.SB.funcaoAusente(err);
+    return false;
   }
 
   function linhaParaObjeto(data) {
@@ -39,28 +34,37 @@ document.addEventListener('DOMContentLoaded', () => {
     return null;
   }
 
+  // Descobre uma vez só se o banco já tem a função nova.
+  let bancoTemFuncao = true;
+
   async function buscarUsuario(email, password) {
     // 1) Login pelo banco (a senha nunca é comparada no navegador).
-    const { data, error } = await _supabase.rpc('fazer_login', {
-      p_email: email,
-      p_senha: password
-    });
+    if (bancoTemFuncao) {
+      const { data, error } = await _supabase.rpc('fazer_login', {
+        p_email: email,
+        p_senha: password
+      });
 
-    if (!error) return linhaParaObjeto(data);
+      if (!error) return linhaParaObjeto(data);
 
-    // 2) Banco ainda no formato antigo? Usa o jeito anterior.
-    if (ehFuncaoAusente(error)) {
-      const res = await _supabase
-        .from('usuarios')
-        .select('*')
-        .eq('email', email)
-        .eq('senha', password)
-        .maybeSingle();
-      if (res.error) throw res.error;
-      return res.data;
+      if (ehFuncaoAusente(error)) {
+        bancoTemFuncao = false;
+        console.info('login: usando o método antigo (banco ainda sem a função fazer_login).');
+      } else {
+        throw error;
+      }
     }
 
-    throw error;
+    // 2) Método antigo: consulta direta na tabela.
+    const res = await _supabase
+      .from('usuarios')
+      .select('*')
+      .eq('email', email)
+      .eq('senha', password)
+      .maybeSingle();
+
+    if (res.error) throw res.error;
+    return res.data;
   }
 
   form.addEventListener('submit', async (e) => {
@@ -109,8 +113,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
       window.location.href = 'index.html';
     } catch (err) {
-      console.error(err);
-      showError('Erro ao efetuar login. Verifique sua conexão.');
+      console.error('login falhou:', err);
+      const code = (err && err.code) || '';
+      if (code === '42501') {
+        showError('Acesso negado pelo banco. Rode o supabase.sql no Supabase.');
+      } else {
+        showError('Não foi possível entrar agora. Tente novamente em instantes.');
+      }
     } finally {
       accessBtn.classList.remove('loading');
       accessBtn.textContent = 'Acessar';
