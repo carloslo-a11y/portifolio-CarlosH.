@@ -112,6 +112,20 @@ body{
   margin:0 0 26px;
 }
 
+.form-hint{
+  font-size:12px;
+  line-height:1.6;
+  color:#7A6A46;
+  margin:-14px 0 22px;
+  padding:11px 13px;
+  border-radius:8px;
+  border:1px solid rgba(90,58,22,.18);
+  background:rgba(230,162,51,.07);
+}
+.form-hint strong{
+  color:var(--honey-deep);
+}
+
 .field{
   display:block;
   text-align:left;

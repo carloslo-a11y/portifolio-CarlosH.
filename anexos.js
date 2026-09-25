@@ -6,6 +6,11 @@ function anexosSupOk() {
     return !!(SB && SB.ready());
 }
 
+// Somente o administrador (e-mail em session.js) pode editar.
+function podeEditar() {
+    return !!(window.PSS && window.PSS.podeEditar && window.PSS.podeEditar());
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const containers = Array.from(document.querySelectorAll('.eixo-container'));
     const saveToast = document.getElementById('save-toast');
@@ -14,6 +19,25 @@ document.addEventListener('DOMContentLoaded', () => {
     let state = { passos: [] };
     let saveTimer = null;
     let cloudTimer = null;
+    const pode = podeEditar();
+
+    // Trava os campos de texto e o botão de adicionar para quem só visualiza.
+    if (!pode) {
+        containers.forEach(container => {
+            const desc = container.querySelector('.step-desc');
+            if (desc) {
+                desc.setAttribute('contenteditable', 'false');
+                desc.classList.add('locked');
+            }
+            const addBtn = container.querySelector('.add-item-btn');
+            if (addBtn) {
+                addBtn.disabled = true;
+                addBtn.title = 'Apenas o administrador pode adicionar anexos.';
+            }
+            const fileInput = container.querySelector('.file-input');
+            if (fileInput) fileInput.disabled = true;
+        });
+    }
 
     function showToast(text) {
         saveToast.textContent = text || '✓ Salvo';
@@ -61,19 +85,22 @@ document.addEventListener('DOMContentLoaded', () => {
         item.className = 'attach-item';
         item.innerHTML =
             '<img src="' + src + '" alt="Anexo">' +
-            '<button type="button" class="remove-btn" aria-label="Remover anexo">&times;</button>' +
-            '<div class="caption" contenteditable="true"></div>';
+            (pode ? '<button type="button" class="remove-btn" aria-label="Remover anexo">&times;</button>' : '') +
+            '<div class="caption" contenteditable="' + (pode ? 'true' : 'false') + '"></div>';
         const img = item.querySelector('img');
         const cap = item.querySelector('.caption');
         cap.textContent = caption || 'Legenda do anexo…';
 
         img.addEventListener('click', () => openLightbox(img.src));
-        item.querySelector('.remove-btn').addEventListener('click', () => {
-            item.remove();
-            showToast('Anexo removido.');
-            saveState();
-        });
-        cap.addEventListener('input', debouncedSave);
+
+        if (pode) {
+            item.querySelector('.remove-btn').addEventListener('click', () => {
+                item.remove();
+                showToast('Anexo removido.');
+                saveState();
+            });
+            cap.addEventListener('input', debouncedSave);
+        }
         return item;
     }
 
@@ -176,6 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ---------- save ----------
     function saveState() {
+        if (!podeEditar()) return;
         state = {
             passos: containers.map(container => ({
                 desc: container.querySelector('.step-desc').innerHTML,
@@ -194,36 +222,40 @@ document.addEventListener('DOMContentLoaded', () => {
         saveTimer = setTimeout(saveState, 600);
     }
 
-    containers.forEach(container => {
-        const desc = container.querySelector('.step-desc');
-        desc.addEventListener('input', debouncedSave);
-    });
+    if (pode) {
+        containers.forEach(container => {
+            const desc = container.querySelector('.step-desc');
+            desc.addEventListener('input', debouncedSave);
+        });
+    }
 
     // ---------- add image buttons ----------
-    containers.forEach(container => {
-        const addBtn = container.querySelector('.add-item-btn');
-        const fileInput = container.querySelector('.file-input');
-        const gallery = container.querySelector('.image-gallery');
+    if (pode) {
+        containers.forEach(container => {
+            const addBtn = container.querySelector('.add-item-btn');
+            const fileInput = container.querySelector('.file-input');
+            const gallery = container.querySelector('.image-gallery');
 
-        addBtn.addEventListener('click', () => fileInput.click());
-        fileInput.addEventListener('change', () => {
-            const file = fileInput.files && fileInput.files[0];
-            if (!file) return;
-            if (file.size > 2 * 1024 * 1024) {
-                showToast('Imagem muito grande. Use até 2 MB.');
+            addBtn.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', () => {
+                const file = fileInput.files && fileInput.files[0];
+                if (!file) return;
+                if (file.size > 2 * 1024 * 1024) {
+                    showToast('Imagem muito grande. Use até 2 MB.');
+                    fileInput.value = '';
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = () => {
+                    gallery.appendChild(buildItem(reader.result, ''));
+                    showToast('Anexo adicionado.');
+                    saveState();
+                };
+                reader.readAsDataURL(file);
                 fileInput.value = '';
-                return;
-            }
-            const reader = new FileReader();
-            reader.onload = () => {
-                gallery.appendChild(buildItem(reader.result, ''));
-                showToast('Anexo adicionado.');
-                saveState();
-            };
-            reader.readAsDataURL(file);
-            fileInput.value = '';
+            });
         });
-    });
+    }
 
     // ---------- lightbox ----------
     const lightbox = document.createElement('div');

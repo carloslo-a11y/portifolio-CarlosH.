@@ -22,6 +22,47 @@ document.addEventListener('DOMContentLoaded', () => {
     input.addEventListener('input', clearError);
   });
 
+  // A função de login ainda não existe no banco (SQL antigo)?
+  // Nesse caso caímos no método antigo de consulta direta.
+  function ehFuncaoAusente(err) {
+    if (!err) return false;
+    const low = String(err.message || '').toLowerCase();
+    return err.code === '42883'
+      || low.indexOf('does not exist') !== -1
+      || low.indexOf('not found') !== -1
+      || low.indexOf('failed to load') !== -1;
+  }
+
+  function linhaParaObjeto(data) {
+    if (Array.isArray(data)) return data[0] || null;
+    if (data && typeof data === 'object') return data;
+    return null;
+  }
+
+  async function buscarUsuario(email, password) {
+    // 1) Login pelo banco (a senha nunca é comparada no navegador).
+    const { data, error } = await _supabase.rpc('fazer_login', {
+      p_email: email,
+      p_senha: password
+    });
+
+    if (!error) return linhaParaObjeto(data);
+
+    // 2) Banco ainda no formato antigo? Usa o jeito anterior.
+    if (ehFuncaoAusente(error)) {
+      const res = await _supabase
+        .from('usuarios')
+        .select('*')
+        .eq('email', email)
+        .eq('senha', password)
+        .maybeSingle();
+      if (res.error) throw res.error;
+      return res.data;
+    }
+
+    throw error;
+  }
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     clearError();
@@ -43,21 +84,15 @@ document.addEventListener('DOMContentLoaded', () => {
     accessBtn.textContent = 'Entrando...';
 
     try {
-      const { data: user, error } = await _supabase
-        .from('usuarios')
-        .select('*')
-        .eq('email', email)
-        .eq('senha', password)
-        .maybeSingle();
-
-      if (error) throw error;
+      const user = await buscarUsuario(email, password);
 
       if (!user) {
         showError('E-mail ou senha incorretos.');
         return;
       }
 
-      var sessao = {
+      // session.js calcula o papel (admin ou visualização) pelo e-mail.
+      const sessao = {
         id: user.id,
         nome: user.nome,
         email: user.email,
@@ -67,13 +102,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (window.PSS) {
         window.PSS.setUser(sessao);
       } else {
-        try {
-          var json = JSON.stringify(sessao);
-          sessionStorage.setItem('pf-user', json);
-          document.cookie = 'pf-user=' + encodeURIComponent(json) + '; path=/; SameSite=Lax';
-        } catch (err) {
-          console.error(err);
-        }
+        const json = JSON.stringify(sessao);
+        sessionStorage.setItem('pf-user', json);
+        document.cookie = 'pf-user=' + encodeURIComponent(json) + '; path=/; SameSite=Lax';
       }
 
       window.location.href = 'index.html';

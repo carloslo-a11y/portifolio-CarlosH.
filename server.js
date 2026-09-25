@@ -7,6 +7,10 @@ const path = require('path');
 const app = express();
 const PORT = 3000;
 
+// Única conta que pode editar o site.
+// A mesma lista está em session.js (validação no navegador).
+const ADMIN_EMAIL = 'carlosheitorcostalo@gmail.com';
+
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
@@ -34,19 +38,32 @@ async function initDatabase() {
       email VARCHAR(255) NOT NULL UNIQUE,
       senha VARCHAR(255) NOT NULL,
       tipo VARCHAR(20) NOT NULL DEFAULT 'aluno',
+      papel VARCHAR(20) NOT NULL DEFAULT 'viewer',
       criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
-  const [rows] = await conn.query('SELECT id FROM usuarios WHERE email = ?', ['joao@email.com']);
+  // Mesmo administrador do site (a lista de admins fica em session.js).
+  const ADMIN = {
+    nome: 'Carlos Heitor Costalo',
+    email: ADMIN_EMAIL,
+    senha: '123456'
+  };
+
+  const [rows] = await conn.query('SELECT id FROM usuarios WHERE email = ?', [ADMIN.email]);
   if (rows.length === 0) {
-    const hashedPassword = await bcrypt.hash('123456', 10);
+    const hashedPassword = await bcrypt.hash(ADMIN.senha, 10);
     await conn.query(
-      'INSERT INTO usuarios (nome, email, senha, tipo) VALUES (?, ?, ?, ?)',
-      ['João Silva', 'joao@email.com', hashedPassword, 'aluno']
+      'INSERT INTO usuarios (nome, email, senha, tipo, papel) VALUES (?, ?, ?, ?, ?)',
+      [ADMIN.nome, ADMIN.email, hashedPassword, 'aluno', 'admin']
     );
-    console.log('  Usuário demo criado: joao@email.com / 123456');
+    console.log(`  Administrador criado: ${ADMIN.email}`);
   }
+  // Qualquer outra conta deste banco é somente de visualização.
+  await conn.query(
+    "UPDATE usuarios SET papel = 'viewer' WHERE email <> ?",
+    [ADMIN.email]
+  );
 
   await conn.end();
 }
@@ -69,13 +86,22 @@ app.post('/api/cadastro', async (req, res) => {
       return res.status(400).json({ error: 'Todos os campos são obrigatórios.' });
     }
 
+    // O e-mail do administrador é reservado.
+    if (email.trim().toLowerCase() === ADMIN_EMAIL) {
+      return res.status(409).json({ error: 'Este e-mail é reservado ao administrador do portfólio.' });
+    }
+
     const [existing] = await pool.query('SELECT id FROM usuarios WHERE email = ?', [email]);
     if (existing.length > 0) {
       return res.status(409).json({ error: 'E-mail já cadastrado.' });
     }
 
     const hashedPassword = await bcrypt.hash(senha, 10);
-    await pool.query('INSERT INTO usuarios (nome, email, senha, tipo) VALUES (?, ?, ?, ?)', [nome, email, hashedPassword, tipoUsuario]);
+    // Toda conta nova nasce como 'viewer' (só visualização).
+    await pool.query(
+      'INSERT INTO usuarios (nome, email, senha, tipo, papel) VALUES (?, ?, ?, ?, ?)',
+      [nome, email, hashedPassword, tipoUsuario, 'viewer']
+    );
 
     res.status(201).json({ message: 'Cadastro realizado com sucesso!' });
   } catch (err) {
@@ -115,11 +141,15 @@ initDatabase()
     app.listen(PORT, () => {
       console.log('==========================================');
       console.log(`  Servidor rodando em http://localhost:${PORT}`);
-      console.log('  Login:    http://localhost:3000/login.html');
-      console.log('  Cadastro: http://localhost:3000/cadastro.html');
-      console.log('  Usuário demo: joao@email.com / 123456');
+      console.log(`  Login:    http://localhost:${PORT}/login.html`);
+      console.log(`  Cadastro: http://localhost:${PORT}/cadastro.html`);
+      console.log('  ------------------------------------------------');
+      console.log('  Administrador (único que edita):');
+      console.log(`    ${ADMIN_EMAIL} / 123456`);
+      console.log('  Qualquer outra conta: somente visualização.');
       console.log('==========================================');
     });
+
   })
   .catch((err) => {
     console.error('Falha ao iniciar o banco de dados:', err.message);

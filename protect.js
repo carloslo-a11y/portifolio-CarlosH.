@@ -23,13 +23,21 @@
         'clip-path:polygon(12% 0%,88% 0%,100% 50%,88% 100%,12% 100%,0% 50%);padding:10px 20px;transition:transform .15s ease,filter .15s ease;box-shadow:0 8px 22px rgba(0,0,0,.4);}' +
         '.pf-home-bar .pf-btn:hover{transform:translateY(-2px);filter:brightness(1.1);}' +
         '.pf-home-bar .pf-inicio{background:linear-gradient(160deg,#FFC93C,#E6A233);color:#170F09;}' +
-        '.pf-home-bar .pf-sair{background:rgba(46,29,12,.92);border:1px solid #5A3A16;color:#F6E7C6;}';
+        '.pf-home-bar .pf-sair{background:rgba(46,29,12,.92);border:1px solid #5A3A16;color:#F6E7C6;}' +
+        '.pf-home-bar .pf-papel{font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;' +
+        'padding:7px 13px;border-radius:999px;border:1px solid #5A3A16;background:rgba(46,29,12,.92);color:#F6E7C6;white-space:nowrap;}' +
+        '.pf-home-bar .pf-papel.pf-admin{border-color:#FFC93C;color:#FFC93C;}';
 
     document.head.appendChild(style);
+
+    var podeEditar = !!(window.PSS && window.PSS.podeEditar && window.PSS.podeEditar());
 
     var bar = document.createElement('div');
     bar.className = 'pf-home-bar';
     bar.innerHTML =
+        '<span class="pf-papel' + (podeEditar ? ' pf-admin' : '') + '">' +
+        (podeEditar ? '&#9998; Administrador' : '&#128274; Visualiza&ccedil;&atilde;o') +
+        '</span>' +
         '<a class="pf-btn pf-inicio" href="index.html">In&iacute;cio</a>' +
         '<button type="button" class="pf-btn pf-sair">Sair</button>';
 

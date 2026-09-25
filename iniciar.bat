@@ -16,6 +16,11 @@ echo  Abra o navegador em:
 echo    Login:    http://localhost:3000/login.html
 echo    Cadastro: http://localhost:3000/cadastro.html
 echo.
+echo  ------------------------------------------------
+echo  Administrador (unico que edita o site):
+echo    carlosheitorcostalo@gmail.com / 123456
+echo  Qualquer outra conta: somente visualizacao.
+echo.
 echo  Pressione Ctrl+C para encerrar o servidor.
 echo ==========================================
 node server.js

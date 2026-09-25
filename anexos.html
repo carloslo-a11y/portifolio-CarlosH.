@@ -287,6 +287,46 @@
             color: var(--honey-bright);
         }
 
+        /* ---------- modo somente visualização ---------- */
+        .step-desc.locked,
+        .step-desc.locked:hover {
+            border-color: transparent;
+            background: transparent;
+            cursor: default;
+        }
+
+        .step-desc.locked::after {
+            content: "\1F512  apenas o administrador pode editar este texto";
+            display: block;
+            margin-top: 8px;
+            font-family: 'Space Mono', monospace;
+            font-size: 10.5px;
+            letter-spacing: .06em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            opacity: 0;
+            transition: opacity .2s ease;
+        }
+
+        .step-desc.locked:hover::after {
+            opacity: .6;
+        }
+
+        .attach-item .caption[contenteditable="false"] {
+            cursor: default;
+        }
+
+        .add-item-btn:disabled {
+            opacity: .32;
+            cursor: not-allowed;
+            filter: grayscale(1);
+        }
+
+        .add-item-btn:disabled:hover {
+            transform: none;
+            filter: grayscale(1);
+        }
+
         /* ---------- image gallery: hex cells ---------- */
         .image-gallery {
             display: flex;

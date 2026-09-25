@@ -17,6 +17,11 @@
         return !!(SB && SB.ready());
     }
 
+    // Somente o administrador (e-mail em session.js) pode editar.
+    function podeEditar() {
+        return !!(window.PSS && window.PSS.podeEditar && window.PSS.podeEditar());
+    }
+
     let state = [];
 
     function esc(value) {
@@ -98,6 +103,7 @@
         }
 
         function enviarParaNuvem(item) {
+            if (!podeEditar()) return Promise.resolve(false);
             if (!supOk()) return Promise.resolve(false);
             var inicio = Promise.resolve();
 
@@ -174,12 +180,29 @@
             refreshFromCloud().then(function () {
                 injectStyles();
                 buildHeaderAndNav();
-                buildForm();
+                if (podeEditar()) {
+                    buildForm();
+                } else {
+                    buildAvisoLeitura();
+                }
                 render();
                 buildLightbox();
                 scrollReveal();
                 subscribeRealtime();
             });
+        }
+
+        // Conta de visualização: avisa que não há edição liberada.
+        function buildAvisoLeitura() {
+            const aviso = document.createElement('div');
+            aviso.className = 'read-only-note';
+            aviso.innerHTML =
+                '<span class="ro-lock">&#128274;</span>' +
+                '<div><strong>Modo visualiza&ccedil;&atilde;o</strong>' +
+                '<p>Voc&ecirc; est&aacute; olhando o portf&oacute;lio. Apenas o administrador ' +
+                'pode adicionar, alterar datas e excluir atividades.</p></div>';
+            const target = center || atividades;
+            target.insertBefore(aviso, target.firstChild);
         }
 
         function buildHeaderAndNav() {
@@ -328,7 +351,9 @@
                 if (!items.length) {
                     const empty = document.createElement('p');
                     empty.className = 'gallery-empty';
-                    empty.textContent = '🐝 Nenhuma atividade. Use o formulário acima!';
+                    empty.textContent = podeEditar()
+                        ? '🐝 Nenhuma atividade. Use o formulário acima!'
+                        : '🐝 Nenhuma atividade publicada neste eixo.';
                     gallery.appendChild(empty);
                     return;
                 }
@@ -341,68 +366,79 @@
         function buildItem(a) {
             const item = document.createElement('div');
             item.className = 'act-item';
+
+            const pode = podeEditar();
+
             item.innerHTML =
                 '<div class="act-frame">' +
                 '  <img src="' + esc(a.src) + '" alt="' + esc(a.nome) + '">' +
                 '</div>' +
-                '<button type="button" class="edit-btn" aria-label="Alterar data">&#9998;</button>' +
-                '<button type="button" class="remove-btn" aria-label="Remover atividade">&times;</button>' +
+                (pode
+                    ? '<button type="button" class="edit-btn" aria-label="Alterar data">&#9998;</button>' +
+                      '<button type="button" class="remove-btn" aria-label="Remover atividade">&times;</button>'
+                    : '') +
                 '<div class="act-name">' + esc(a.nome) + '<span class="act-date">' + esc(a.data) + '</span></div>';
 
-            item.querySelector('.edit-btn').addEventListener('click', function () {
-                const dateEl = item.querySelector('.act-date');
-                const editor = document.createElement('span');
-                editor.className = 'act-date act-date-ed';
+            if (pode) {
+                item.querySelector('.edit-btn').addEventListener('click', function () {
+                    const dateEl = item.querySelector('.act-date');
+                    const editor = document.createElement('span');
+                    editor.className = 'act-date act-date-ed';
 
-                const input = document.createElement('input');
-                input.type = 'date';
-                input.value = toIso(a.data);
+                    const input = document.createElement('input');
+                    input.type = 'date';
+                    input.value = toIso(a.data);
 
-                const save = document.createElement('button');
-                save.type = 'button';
-                save.className = 'date-ok';
-                save.setAttribute('aria-label', 'Salvar data');
-                save.textContent = '✓';
-                save.addEventListener('click', function () {
-                    const novo = input.value ? formatDate(input.value) : a.data;
-                    if (novo !== a.data) {
-                        a.data = novo;
-                        render();
-                        toast('Data atualizada ✓');
-                        enviarParaNuvem(a);
-                    }
+                    const save = document.createElement('button');
+                    save.type = 'button';
+                    save.className = 'date-ok';
+                    save.setAttribute('aria-label', 'Salvar data');
+                    save.textContent = '✓';
+                    save.addEventListener('click', function () {
+                        const novo = input.value ? formatDate(input.value) : a.data;
+                        if (novo !== a.data) {
+                            a.data = novo;
+                            render();
+                            toast('Data atualizada ✓');
+                            enviarParaNuvem(a);
+                        }
+                    });
+
+                    editor.appendChild(input);
+                    editor.appendChild(save);
+                    dateEl.replaceWith(editor);
+                    input.focus();
                 });
 
-                editor.appendChild(input);
-                editor.appendChild(save);
-                dateEl.replaceWith(editor);
-                input.focus();
-            });
+                item.querySelector('.remove-btn').addEventListener('click', function () {
+                    if (!confirm('Excluir a atividade "' + a.nome + '"?')) return;
+                    const apagada = a;
+                    state = state.filter(function (x) { return x.id !== a.id; });
+                    render();
+                    toast('Atividade removida.');
+                    SB.client().from('atividades')
+                        .delete()
+                        .eq('id', apagada.id)
+                        .then(function (res) {
+                            if (res.error) {
+                                state.push(apagada);
+                                render();
+                                toast('⚠ Não foi possível remover.');
+                                return;
+                            }
+                            const path = SB.pathFromUrl(apagada.src) || apagada.path;
+                            if (path) {
+                                SB.client().storage.from(SB.bucket).remove([path])
+                                    .then(function (st) { if (st.error) console.error(st.error); });
+                            }
+                        });
+                });
+            }
+
             item.querySelector('img').addEventListener('click', function () {
                 openLightbox(a.src, a.nome);
             });
-            item.querySelector('.remove-btn').addEventListener('click', function () {
-                const apagada = a;
-                state = state.filter(function (x) { return x.id !== a.id; });
-                render();
-                toast('Atividade removida.');
-                SB.client().from('atividades')
-                    .delete()
-                    .eq('id', apagada.id)
-                    .then(function (res) {
-                        if (res.error) {
-                            state.push(apagada);
-                            render();
-                            toast('⚠ Não foi possível remover.');
-                            return;
-                        }
-                        const path = SB.pathFromUrl(apagada.src) || apagada.path;
-                        if (path) {
-                            SB.client().storage.from(SB.bucket).remove([path])
-                                .then(function (st) { if (st.error) console.error(st.error); });
-                        }
-                    });
-            });
+
             return item;
         }
 
@@ -481,6 +517,14 @@
                 'padding:13px 18px;border-radius:8px;clip-path:polygon(6% 0,94% 0,100% 50%,94% 100%,6% 100%,0 50%);' +
                 'transition:transform .18s ease,filter .18s ease}',
                 '.activity-form .add-btn:hover{transform:translateY(-2px);filter:brightness(1.06)}',
+                '.read-only-note{max-width:760px;margin:34px auto 6px;padding:18px 20px;display:flex;gap:14px;' +
+                'align-items:center;background:rgba(46,29,12,.72);border:1px solid var(--comb-line);border-radius:14px;' +
+                'backdrop-filter:blur(6px);box-shadow:0 18px 40px rgba(0,0,0,.3)}',
+                '.read-only-note .ro-lock{font-size:26px;line-height:1;flex-shrink:0;opacity:.85}',
+                '.read-only-note strong{display:block;font-family:"Fraunces",serif;font-size:1.05rem;' +
+                'color:var(--honey-bright);margin-bottom:3px}',
+                '.read-only-note p{margin:0;color:var(--text-muted);font-size:12.5px;line-height:1.55;' +
+                'font-family:"Space Mono",monospace}',
                 '.act-item{position:relative;width:320px}',
                 '.act-frame{position:relative;width:320px;aspect-ratio:16/10;padding:12px;overflow:hidden;' +
                 'background:linear-gradient(160deg,var(--honey-bright),var(--honey-deep));' +
